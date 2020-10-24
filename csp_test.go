@@ -79,7 +79,7 @@ func NewIntVarWithRange(label VarLabel, lb, ub int) *IntVar {
 	return NewIntVar(label, d)
 }
 
-func TestCSPConstraint(t *testing.T) {
+func TestCSPLiteral(t *testing.T) {
 	x := NewBoolVar("x", true)
 	y := NewBoolVar("y", true)
 	z := CSPAnd(x, y)

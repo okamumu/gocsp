@@ -39,7 +39,7 @@ func NewBoolVar(label VarLabel, neg bool) *BoolVar {
 func NewAuxBoolVar(neg bool) *BoolVar {
 	auxcount++
 	return &BoolVar{
-		label: VarLabel("aux" + strconv.Itoa(auxcount)),
+		label: VarLabel("auxbool" + strconv.Itoa(auxcount)),
 		neg:   neg,
 	}
 }
@@ -59,18 +59,19 @@ func NewIntVar(label VarLabel, domain *DomainSet) *IntVar {
 func NewAuxIntVar(domain *DomainSet) *IntVar {
 	auxcount++
 	return &IntVar{
-		label:  VarLabel("aux" + strconv.Itoa(auxcount)),
+		label:  VarLabel("auxint" + strconv.Itoa(auxcount)),
 		domain: domain,
 	}
 }
 
-type CSPConstraint interface {
-	Not() CSPConstraint
-	ToLeZero() CSPConstraint
-	Decomp([]*IntVar) (CSPConstraint, []*IntVar)
+type CSPLiteral interface {
+	Not() CSPLiteral
+	ToLeZero() CSPLiteral
+	Decomp([]*IntVar) (CSPLiteral, []*IntVar)
 	tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, []*BoolVar)
-	flattenOr(result []CSPConstraint) []CSPConstraint
-	testin(first []CSPConstraint, result []CSPConstraint, auxvars []*BoolVar) ([]CSPConstraint, []CSPConstraint, []*BoolVar)
+	flattenOr(result []CSPLiteral) []CSPLiteral
+	testin(first []CSPLiteral, result []CSPLiteral, auxvars []*BoolVar) ([]CSPLiteral, []CSPLiteral, []*BoolVar)
+	isSimple() bool
 }
 
 type CSPComparator struct {
@@ -80,28 +81,28 @@ type CSPComparator struct {
 
 type CSPOperator struct {
 	op   CSPOperatorType
-	args []CSPConstraint
+	args []CSPLiteral
 }
 
-func CSPAnd(args ...CSPConstraint) *CSPOperator {
+func CSPAnd(args ...CSPLiteral) *CSPOperator {
 	return &CSPOperator{
 		op:   CSPOperatorAnd,
 		args: args,
 	}
 }
 
-func CSPOr(args ...CSPConstraint) *CSPOperator {
+func CSPOr(args ...CSPLiteral) *CSPOperator {
 	return &CSPOperator{
 		op:   CSPOperatorOr,
 		args: args,
 	}
 }
 
-func CSPImp(x, y CSPConstraint) CSPConstraint {
+func CSPImp(x, y CSPLiteral) CSPLiteral {
 	return CSPOr(x.Not(), y)
 }
 
-func CSPIff(x, y CSPConstraint) CSPConstraint {
+func CSPIff(x, y CSPLiteral) CSPLiteral {
 	return CSPAnd(CSPOr(x.Not(), y), CSPOr(x, y.Not()))
 }
 
@@ -135,16 +136,16 @@ func CSPNeZero(s *Sum) *CSPComparator {
 
 // not
 
-func (c *CSPOperator) Not() CSPConstraint {
+func (c *CSPOperator) Not() CSPLiteral {
 	switch c.op {
 	case CSPOperatorAnd:
-		newargs := make([]CSPConstraint, len(c.args))
+		newargs := make([]CSPLiteral, len(c.args))
 		for _, x := range c.args {
 			newargs = append(newargs, x.Not())
 		}
 		return CSPOr(newargs...)
 	case CSPOperatorOr:
-		newargs := make([]CSPConstraint, len(c.args))
+		newargs := make([]CSPLiteral, len(c.args))
 		for _, x := range c.args {
 			newargs = append(newargs, x.Not())
 		}
@@ -154,7 +155,7 @@ func (c *CSPOperator) Not() CSPConstraint {
 	}
 }
 
-func (c *CSPComparator) Not() CSPConstraint {
+func (c *CSPComparator) Not() CSPLiteral {
 	s := c.s.copy()
 	switch c.op {
 	case CSPOperatorLeZero:
@@ -172,7 +173,7 @@ func (c *CSPComparator) Not() CSPConstraint {
 	}
 }
 
-func (b *BoolVar) Not() CSPConstraint {
+func (b *BoolVar) Not() CSPLiteral {
 	nb := NewBoolVar(b.label, b.neg)
 	nb.neg = !nb.neg
 	return nb
@@ -180,7 +181,7 @@ func (b *BoolVar) Not() CSPConstraint {
 
 // ToLeZero
 
-func (c *CSPComparator) ToLeZero() CSPConstraint {
+func (c *CSPComparator) ToLeZero() CSPLiteral {
 	switch c.op {
 	case CSPOperatorEqZero:
 		s1 := c.s.copy()
@@ -201,16 +202,16 @@ func (c *CSPComparator) ToLeZero() CSPConstraint {
 	}
 }
 
-func (c *CSPOperator) ToLeZero() CSPConstraint {
+func (c *CSPOperator) ToLeZero() CSPLiteral {
 	switch c.op {
 	case CSPOperatorAnd:
-		newargs := make([]CSPConstraint, len(c.args))
+		newargs := make([]CSPLiteral, len(c.args))
 		for _, x := range c.args {
 			newargs = append(newargs, x.ToLeZero())
 		}
 		return CSPAnd(newargs...)
 	case CSPOperatorOr:
-		newargs := make([]CSPConstraint, len(c.args))
+		newargs := make([]CSPLiteral, len(c.args))
 		for _, x := range c.args {
 			newargs = append(newargs, x.ToLeZero())
 		}
@@ -220,6 +221,6 @@ func (c *CSPOperator) ToLeZero() CSPConstraint {
 	}
 }
 
-func (b *BoolVar) ToLeZero() CSPConstraint {
+func (b *BoolVar) ToLeZero() CSPLiteral {
 	return b
 }

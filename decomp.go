@@ -33,8 +33,8 @@ func sortVars(coef map[*IntVar]int) []*IntVar {
 }
 
 // This function is to decompose a linear constraint so that they become up to three terms.
-func (s *Sum) decompsum(auxvars []*IntVar) ([]CSPConstraint, []*IntVar) {
-	lits := make([]CSPConstraint, 0)
+func (s *Sum) decompsum(auxvars []*IntVar) ([]CSPLiteral, []*IntVar) {
+	lits := make([]CSPLiteral, 0)
 	for s.Size() > 3 {
 		vars := sortVars(s.coef)
 		x, y := vars[0], vars[1]
@@ -56,8 +56,8 @@ func (s *Sum) decompsum(auxvars []*IntVar) ([]CSPConstraint, []*IntVar) {
 	return lits, auxvars
 }
 
-func (c *CSPComparator) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
-	var lits []CSPConstraint
+func (c *CSPComparator) Decomp(auxvars []*IntVar) (CSPLiteral, []*IntVar) {
+	var lits []CSPLiteral
 	switch c.op {
 	case CSPOperatorEqZero:
 		lits, auxvars = c.s.decompsum(auxvars)
@@ -80,16 +80,16 @@ func (c *CSPComparator) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
 	}
 }
 
-func (c *CSPOperator) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
+func (c *CSPOperator) Decomp(auxvars []*IntVar) (CSPLiteral, []*IntVar) {
 	switch c.op {
 	case CSPOperatorAnd:
-		args := make([]CSPConstraint, len(c.args))
+		args := make([]CSPLiteral, len(c.args))
 		for i, x := range c.args {
 			args[i], auxvars = x.Decomp(auxvars)
 		}
 		return CSPAnd(args...), auxvars
 	case CSPOperatorOr:
-		args := make([]CSPConstraint, len(c.args))
+		args := make([]CSPLiteral, len(c.args))
 		for i, x := range c.args {
 			args[i], auxvars = x.Decomp(auxvars)
 		}
@@ -99,6 +99,6 @@ func (c *CSPOperator) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
 	}
 }
 
-func (b *BoolVar) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
+func (b *BoolVar) Decomp(auxvars []*IntVar) (CSPLiteral, []*IntVar) {
 	return b, auxvars
 }
