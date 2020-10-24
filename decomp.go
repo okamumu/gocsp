@@ -1,7 +1,7 @@
 package csp
 
 import (
-	"fmt"
+	// "fmt"
 	"sort"
 )
 
@@ -47,10 +47,7 @@ func (s *Sum) decompsum(auxvars []*IntVar) ([]CSPLiteral, []*IntVar) {
 		auxvars = append(auxvars, z)
 		coef := map[*IntVar]int{x: a, y: b, z: -1}
 		f := NewSum(coef, 0)
-		fmt.Println("f ", f)
-		fmt.Println("s ", s)
 		s.Sub(f)
-		fmt.Println("s ", s)
 		lits = append(lits, CSPEqZero(f))
 	}
 	return lits, auxvars

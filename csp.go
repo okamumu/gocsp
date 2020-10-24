@@ -18,9 +18,11 @@ const (
 
 var tmpDomainSet []int // this is used for domain
 var auxcount int       // this is used for numbering of auxvars
+var tmpCNF []CSPClause // this is used in simplify
 
 func init() {
 	tmpDomainSet = make([]int, 0)
+	tmpCNF = make([]CSPClause, 0)
 	auxcount = 0
 }
 

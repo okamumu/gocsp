@@ -129,12 +129,10 @@ func (b *BoolVar) isSimple() bool {
 	return true
 }
 
-func Simplify(c CSPLiteral) ([]CSPClause, []*BoolVar) {
-	cnf := make([]CSPClause, 0)
-	simplecnf := make([]CSPClause, 0)
-	vars := make([]*BoolVar, 0)
-	cnf, vars = c.tocnf(cnf, vars)
-	for _, clause := range cnf {
+func Simplify(c CSPLiteral, simplecnf []CSPClause, vars []*BoolVar) ([]CSPClause, []*BoolVar) {
+	tmpCNF = tmpCNF[:0]
+	tmpCNF, vars = c.tocnf(tmpCNF, vars)
+	for _, clause := range tmpCNF {
 		if clause.isSimple() {
 			simplecnf = append(simplecnf, clause)
 		} else {
