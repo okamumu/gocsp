@@ -1,5 +1,10 @@
 package csp
 
+import (
+	"strconv"
+)
+
+type VarLabel string
 type CSPOperatorType int
 
 const (
@@ -11,10 +16,61 @@ const (
 	CSPOperatorNeZero
 )
 
+var tmpDomainSet []int // this is used for domain
+var auxcount int       // this is used for numbering of auxvars
+
+func init() {
+	tmpDomainSet = make([]int, 0)
+	auxcount = 0
+}
+
+type BoolVar struct {
+	label VarLabel
+	neg   bool
+}
+
+func NewBoolVar(label VarLabel, neg bool) *BoolVar {
+	return &BoolVar{
+		label: label,
+		neg:   neg,
+	}
+}
+
+func NewAuxBoolVar(neg bool) *BoolVar {
+	auxcount++
+	return &BoolVar{
+		label: VarLabel("aux" + strconv.Itoa(auxcount)),
+		neg:   neg,
+	}
+}
+
+type IntVar struct {
+	label  VarLabel
+	domain *DomainSet
+}
+
+func NewIntVar(label VarLabel, domain *DomainSet) *IntVar {
+	return &IntVar{
+		label:  label,
+		domain: domain,
+	}
+}
+
+func NewAuxIntVar(domain *DomainSet) *IntVar {
+	auxcount++
+	return &IntVar{
+		label:  VarLabel("aux" + strconv.Itoa(auxcount)),
+		domain: domain,
+	}
+}
+
 type CSPConstraint interface {
 	Not() CSPConstraint
 	ToLeZero() CSPConstraint
 	Decomp([]*IntVar) (CSPConstraint, []*IntVar)
+	tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, []*BoolVar)
+	flattenOr(result []CSPConstraint) []CSPConstraint
+	testin(first []CSPConstraint, result []CSPConstraint, auxvars []*BoolVar) ([]CSPConstraint, []CSPConstraint, []*BoolVar)
 }
 
 type CSPComparator struct {
@@ -116,6 +172,12 @@ func (c *CSPComparator) Not() CSPConstraint {
 	}
 }
 
+func (b *BoolVar) Not() CSPConstraint {
+	nb := NewBoolVar(b.label, b.neg)
+	nb.neg = !nb.neg
+	return nb
+}
+
 // ToLeZero
 
 func (c *CSPComparator) ToLeZero() CSPConstraint {
@@ -156,4 +218,8 @@ func (c *CSPOperator) ToLeZero() CSPConstraint {
 	default:
 		panic("")
 	}
+}
+
+func (b *BoolVar) ToLeZero() CSPConstraint {
+	return b
 }

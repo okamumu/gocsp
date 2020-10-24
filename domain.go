@@ -141,12 +141,6 @@ func (d *DomainSet) Neg() {
 	d.x = x
 }
 
-var tmpDomainSet []int
-
-func init() {
-	tmpDomainSet = make([]int, 0)
-}
-
 func (d *DomainSet) Func(other *DomainSet, f func(int, int) int) {
 	tmpDomainSet = tmpDomainSet[:0]
 	for _, v1 := range d.x {

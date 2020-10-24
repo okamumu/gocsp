@@ -32,6 +32,7 @@ func sortVars(coef map[*IntVar]int) []*IntVar {
 	return vars
 }
 
+// This function is to decompose a linear constraint so that they become up to three terms.
 func (s *Sum) decompsum(auxvars []*IntVar) ([]CSPConstraint, []*IntVar) {
 	lits := make([]CSPConstraint, 0)
 	for s.Size() > 3 {
@@ -96,4 +97,8 @@ func (c *CSPOperator) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
 	default:
 		panic("")
 	}
+}
+
+func (b *BoolVar) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
+	return b, auxvars
 }
