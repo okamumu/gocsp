@@ -1,14 +1,11 @@
 package csp
 
-type CSPClause struct {
-	x []CSPLiteral
-}
+type CSPClause []CSPLiteral
 
-func NewCSPClause(x []CSPLiteral) *CSPClause {
-	return &CSPClause{
-		x: x,
-	}
-}
+// func NewCSPClause(x []CSPLiteral) *CSPClause {
+// 	y := CSPClause(x)
+// 	return &y
+// }
 
 // func (l *CSPClause) add(c CSPLiteral) {
 // 	l.x = append(l.x, c)
@@ -29,7 +26,7 @@ func (c *CSPOperator) tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, [
 		for _, x := range cs {
 			lt, lits, auxvars = x.testin(lt, lits, auxvars)
 		}
-		cnf = append(cnf, CSPClause{x: lt})
+		cnf = append(cnf, CSPClause(lt))
 		for _, x := range lits {
 			cnf, auxvars = x.tocnf(cnf, auxvars)
 		}
@@ -40,13 +37,11 @@ func (c *CSPOperator) tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, [
 }
 
 func (c *CSPComparator) tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, []*BoolVar) {
-	lt := NewCSPClause([]CSPLiteral{c})
-	return append(cnf, *lt), auxvars
+	return append(cnf, CSPClause{c}), auxvars
 }
 
 func (b *BoolVar) tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, []*BoolVar) {
-	lt := NewCSPClause([]CSPLiteral{b})
-	return append(cnf, *lt), auxvars
+	return append(cnf, CSPClause{b}), auxvars
 }
 
 // flattenOr: The function is to flatten list of literals for two or more OR operations.
@@ -107,7 +102,7 @@ func (b *BoolVar) testin(first []CSPLiteral, result []CSPLiteral, auxvars []*Boo
 // simplify
 func (c CSPClause) isSimple() bool {
 	count := 0
-	for _, l := range c.x {
+	for _, l := range c {
 		if !l.isSimple() {
 			if count++; count > 1 {
 				return false
@@ -136,18 +131,18 @@ func Simplify(c CSPLiteral, simplecnf []CSPClause, vars []*BoolVar) ([]CSPClause
 		if clause.isSimple() {
 			simplecnf = append(simplecnf, clause)
 		} else {
-			first := make([]CSPLiteral, 0, len(clause.x))
-			for _, lit := range clause.x {
+			first := make([]CSPLiteral, 0, len(clause))
+			for _, lit := range clause {
 				if lit.isSimple() {
 					first = append(first, lit)
 				} else {
 					p := NewAuxBoolVar(false)
 					vars = append(vars, p)
 					first = append(first, p)
-					simplecnf = append(simplecnf, *NewCSPClause([]CSPLiteral{p.Not(), lit}))
+					simplecnf = append(simplecnf, CSPClause{p.Not(), lit})
 				}
 			}
-			simplecnf = append(simplecnf, *NewCSPClause(first))
+			simplecnf = append(simplecnf, CSPClause(first))
 		}
 	}
 	return simplecnf, vars

@@ -1,6 +1,7 @@
 package csp
 
 import (
+	// "log"
 	"strconv"
 )
 
@@ -19,11 +20,15 @@ const (
 var tmpDomainSet []int // this is used for domain
 var auxcount int       // this is used for numbering of auxvars
 var tmpCNF []CSPClause // this is used in simplify
+var satBaseCodes map[VarLabel]SATCode
+var satcount SATCode
 
 func init() {
 	tmpDomainSet = make([]int, 0)
 	tmpCNF = make([]CSPClause, 0)
 	auxcount = 0
+	satBaseCodes = make(map[VarLabel]SATCode)
+	satcount = 1
 }
 
 type BoolVar struct {
@@ -38,6 +43,17 @@ func NewBoolVar(label VarLabel, neg bool) *BoolVar {
 	}
 }
 
+func (b *BoolVar) getSATCodeBase() SATCode {
+	if base, ok := satBaseCodes[b.label]; ok {
+		return base
+	} else {
+		base = satcount
+		satBaseCodes[b.label] = base
+		satcount++
+		return base
+	}
+}
+
 func NewAuxBoolVar(neg bool) *BoolVar {
 	auxcount++
 	return &BoolVar{
@@ -49,6 +65,17 @@ func NewAuxBoolVar(neg bool) *BoolVar {
 type IntVar struct {
 	label  VarLabel
 	domain *DomainSet
+}
+
+func (v *IntVar) getSATCodeBase() SATCode {
+	if base, ok := satBaseCodes[v.label]; ok {
+		return base
+	} else {
+		base = satcount
+		satBaseCodes[v.label] = base
+		satcount += SATCode(v.domain.Size() - 1)
+		return base
+	}
 }
 
 func NewIntVar(label VarLabel, domain *DomainSet) *IntVar {
@@ -74,6 +101,7 @@ type CSPLiteral interface {
 	flattenOr(result []CSPLiteral) []CSPLiteral
 	testin(first []CSPLiteral, result []CSPLiteral, auxvars []*BoolVar) ([]CSPLiteral, []CSPLiteral, []*BoolVar)
 	isSimple() bool
+	encode(codes []SATClause) []SATClause
 }
 
 type CSPComparator struct {
@@ -141,13 +169,13 @@ func CSPNeZero(s *Sum) *CSPComparator {
 func (c *CSPOperator) Not() CSPLiteral {
 	switch c.op {
 	case CSPOperatorAnd:
-		newargs := make([]CSPLiteral, len(c.args))
+		newargs := make([]CSPLiteral, 0, len(c.args))
 		for _, x := range c.args {
 			newargs = append(newargs, x.Not())
 		}
 		return CSPOr(newargs...)
 	case CSPOperatorOr:
-		newargs := make([]CSPLiteral, len(c.args))
+		newargs := make([]CSPLiteral, 0, len(c.args))
 		for _, x := range c.args {
 			newargs = append(newargs, x.Not())
 		}
@@ -182,7 +210,6 @@ func (b *BoolVar) Not() CSPLiteral {
 }
 
 // ToLeZero
-
 func (c *CSPComparator) ToLeZero() CSPLiteral {
 	switch c.op {
 	case CSPOperatorEqZero:
@@ -207,22 +234,22 @@ func (c *CSPComparator) ToLeZero() CSPLiteral {
 func (c *CSPOperator) ToLeZero() CSPLiteral {
 	switch c.op {
 	case CSPOperatorAnd:
-		newargs := make([]CSPLiteral, len(c.args))
+		newargs := make([]CSPLiteral, 0, len(c.args))
 		for _, x := range c.args {
 			newargs = append(newargs, x.ToLeZero())
 		}
 		return CSPAnd(newargs...)
 	case CSPOperatorOr:
-		newargs := make([]CSPLiteral, len(c.args))
+		newargs := make([]CSPLiteral, 0, len(c.args))
 		for _, x := range c.args {
 			newargs = append(newargs, x.ToLeZero())
 		}
-		return CSPAnd(newargs...)
+		return CSPOr(newargs...)
 	default:
 		panic("")
 	}
 }
 
 func (b *BoolVar) ToLeZero() CSPLiteral {
-	return b
+	return NewBoolVar(b.label, b.neg)
 }

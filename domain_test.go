@@ -10,7 +10,8 @@ func TestDomainContains(t *testing.T) {
 		x: []int{1, 4, 6, 7, 19},
 	}
 	for i := 0; i < 100; i++ {
-		fmt.Printf("%d : %t\n", i, d.Contains(i))
+		pos, ok := d.Contains(i)
+		fmt.Printf("%d : pos %d %t\n", i, pos, ok)
 	}
 }
 

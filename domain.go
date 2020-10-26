@@ -40,27 +40,40 @@ func (d *DomainSet) Ub() int {
 	return d.x[len(d.x)-1]
 }
 
-func (d *DomainSet) Contains(value int) bool {
+// The function to give us the position of a given value with a binary search
+// The second return value indicates whehter a value cotaints or not.
+// If the second value is false, the first value indicates the following conditions
+// for a given value x:
+//   x < lb  -> -1
+//   lb <= x <= ub -> 0
+//   ub < x -> 1
+func (d *DomainSet) Contains(value int) (int, bool) {
 	l := 0
 	u := len(d.x) - 1
-	if value < d.x[l] || d.x[u] < value {
-		return false
+	if value < d.x[l] {
+		return l, false
 	}
-	if value == d.x[l] || d.x[u] == value {
-		return true
+	if d.x[u] < value {
+		return u, false
+	}
+	if value == d.x[l] {
+		return l, true
+	}
+	if d.x[u] == value {
+		return u, true
 	}
 	for u-l > 1 {
 		m := (l + u) / 2
 		// 		log.Printf("l:%d m:%d u:%d", l, m, u)
 		if value == d.x[m] {
-			return true
+			return m, true
 		} else if value < d.x[m] {
 			u = m
 		} else {
 			l = m
 		}
 	}
-	return false
+	return l, false
 }
 
 func (d *DomainSet) Bound(lb, ub int) {

@@ -59,21 +59,22 @@ func (c *CSPComparator) Decomp(auxvars []*IntVar) (CSPLiteral, []*IntVar) {
 	case CSPOperatorEqZero:
 		lits, auxvars = c.s.decompsum(auxvars)
 		lits = append(lits, CSPEqZero(c.s))
-		return CSPAnd(lits...), auxvars
 	case CSPOperatorNeZero:
 		lits, auxvars = c.s.decompsum(auxvars)
 		lits = append(lits, CSPNeZero(c.s))
-		return CSPAnd(lits...), auxvars
 	case CSPOperatorLeZero:
 		lits, auxvars = c.s.decompsum(auxvars)
 		lits = append(lits, CSPLeZero(c.s))
-		return CSPAnd(lits...), auxvars
 	case CSPOperatorGeZero:
 		lits, auxvars = c.s.decompsum(auxvars)
 		lits = append(lits, CSPGeZero(c.s))
-		return CSPAnd(lits...), auxvars
 	default:
 		panic("")
+	}
+	if len(lits) == 1 {
+		return lits[0], auxvars
+	} else {
+		return CSPAnd(lits...), auxvars
 	}
 }
 

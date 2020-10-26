@@ -21,7 +21,7 @@ func (x *BoolVar) String() string {
 
 func (lits CSPClause) String() string {
 	str := "["
-	for _, v := range lits.x {
+	for _, v := range lits {
 		str += fmt.Sprintf("%s,", v)
 	}
 	return str + "]"
@@ -79,6 +79,11 @@ func NewIntVarWithRange(label VarLabel, lb, ub int) *IntVar {
 	return NewIntVar(label, d)
 }
 
+func NewIntVarWithSet(label VarLabel, s []int) *IntVar {
+	d := &DomainSet{x: s}
+	return NewIntVar(label, d)
+}
+
 func TestCSPLiteral(t *testing.T) {
 	x := NewBoolVar("x", true)
 	y := NewBoolVar("y", true)
@@ -100,4 +105,17 @@ func TestCSPVar1(t *testing.T) {
 	s1.MulConst(10).Add(s2)
 	fmt.Println(s1)
 	fmt.Println(s2)
+}
+
+func TestToLeZero1(t *testing.T) {
+	y := make([]*IntVar, 10)
+	for i, _ := range y {
+		y[i] = NewIntVarWithRange(VarLabel(fmt.Sprintf("int%d", i)), 0, 10)
+	}
+	var c1 CSPLiteral
+	c1, y = CSPEqZero(NewSum(map[*IntVar]int{y[0]: 4, y[3]: 10, y[9]: 8}, 1)).Decomp(y)
+	// c1 = CSPEqZero(NewSum(map[*IntVar]int{y[0]: 4, y[3]: 10, y[9]: 8}, 1))
+	fmt.Println(c1)
+	c2 := c1.ToLeZero()
+	fmt.Println(c2)
 }
