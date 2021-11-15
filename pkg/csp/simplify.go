@@ -1,15 +1,24 @@
 package csp
 
+import (
+	"fmt"
+	"log"
+)
+
+type CSPLiteral interface {
+	isSimple() bool
+	encode([]Clause, map[uint]int) ([]Clause, bool)
+}
+
 type CSPClause []CSPLiteral
 
-// func NewCSPClause(x []CSPLiteral) *CSPClause {
-// 	y := CSPClause(x)
-// 	return &y
-// }
-
-// func (l *CSPClause) add(c CSPLiteral) {
-// 	l.x = append(l.x, c)
-// }
+func (c CSPClause) String() string {
+	str := "["
+	for _, v := range c {
+		str += fmt.Sprintf("%s,", v)
+	}
+	return str + "]"
+}
 
 // tocnf: The function is to create CNF
 func (c *CSPOperator) tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, []*BoolVar) {
@@ -20,19 +29,20 @@ func (c *CSPOperator) tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, [
 		}
 		return cnf, auxvars
 	case CSPOperatorOr:
-		cs := c.flattenOr(make([]CSPLiteral, 0))
-		lt := make([]CSPLiteral, 0)
-		lits := make([]CSPLiteral, 0)
-		for _, x := range cs {
-			lt, lits, auxvars = x.testin(lt, lits, auxvars)
+		flattencs := c.flattenOr(make([]CSPConstraint, 0))
+		clause := make(CSPClause, 0)
+		cs := make([]CSPConstraint, 0)
+		for _, x := range flattencs {
+			clause, cs, auxvars = x.tseitin(clause, cs, auxvars)
 		}
-		cnf = append(cnf, CSPClause(lt))
-		for _, x := range lits {
+		cnf = append(cnf, clause)
+		for _, x := range cs {
 			cnf, auxvars = x.tocnf(cnf, auxvars)
 		}
 		return cnf, auxvars
 	default:
-		panic("")
+		log.Fatal("Error: operator does not exist")
+		return cnf, auxvars
 	}
 }
 
@@ -46,61 +56,58 @@ func (b *BoolVar) tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, []*Bo
 
 // flattenOr: The function is to flatten list of literals for two or more OR operations.
 // Example: Or(Or(a,b,c), AND(d, e)) -> [a, b, c, AND(d,e)]
-func (c *CSPOperator) flattenOr(result []CSPLiteral) []CSPLiteral {
+func (c *CSPOperator) flattenOr(cs []CSPConstraint) []CSPConstraint {
 	switch c.op {
 	case CSPOperatorAnd:
-		return append(result, c)
+		return append(cs, c)
 	case CSPOperatorOr:
 		for _, x := range c.args {
-			result = x.flattenOr(result)
+			cs = x.flattenOr(cs)
 		}
-		return result
+		return cs
 	default:
-		panic("")
+		log.Fatal("Error: operator does not exist")
+		return cs
 	}
 }
 
-func (c *CSPComparator) flattenOr(result []CSPLiteral) []CSPLiteral {
-	return append(result, c)
+func (c *CSPComparator) flattenOr(cs []CSPConstraint) []CSPConstraint {
+	return append(cs, c)
 }
 
-func (b *BoolVar) flattenOr(result []CSPLiteral) []CSPLiteral {
-	return append(result, b)
+func (b *BoolVar) flattenOr(cs []CSPConstraint) []CSPConstraint {
+	return append(cs, b)
 }
 
-// testin: Testin transform
-func (c *CSPOperator) testin(first []CSPLiteral, result []CSPLiteral, auxvars []*BoolVar) ([]CSPLiteral, []CSPLiteral, []*BoolVar) {
+// tseitin: Tsetin transform
+func (c *CSPOperator) tseitin(first CSPClause, cs []CSPConstraint, auxvars []*BoolVar) (CSPClause, []CSPConstraint, []*BoolVar) {
+	p := newAuxBoolVar(uint(len(auxvars)), false)
+	auxvars = append(auxvars, p)
+	first = append(first, p)
 	switch c.op {
 	case CSPOperatorAnd:
-		p := NewAuxBoolVar(false)
-		auxvars = append(auxvars, p)
-		first = append(first, p)
 		for _, x := range c.args {
-			result = append(result, CSPOr(p.Not(), x))
+			cs = append(cs, CSPOr(x, p.Not()))
 		}
-		return first, result, auxvars
 	case CSPOperatorOr:
-		p := NewAuxBoolVar(false)
-		auxvars = append(auxvars, p)
-		first = append(first, p)
 		c.args = append(c.args, p.Not())
-		result = append(result, CSPOr(c.args...))
-		return first, result, auxvars
+		cs = append(cs, CSPOr(c.args...))
 	default:
-		panic("")
+		log.Fatal("Error: operator does not exist")
 	}
+	return first, cs, auxvars
 }
 
-func (c *CSPComparator) testin(first []CSPLiteral, result []CSPLiteral, auxvars []*BoolVar) ([]CSPLiteral, []CSPLiteral, []*BoolVar) {
-	return append(first, c), result, auxvars
+func (c *CSPComparator) tseitin(first CSPClause, cs []CSPConstraint, auxvars []*BoolVar) (CSPClause, []CSPConstraint, []*BoolVar) {
+	return append(first, c), cs, auxvars
 }
 
-func (b *BoolVar) testin(first []CSPLiteral, result []CSPLiteral, auxvars []*BoolVar) ([]CSPLiteral, []CSPLiteral, []*BoolVar) {
-	return append(first, b), result, auxvars
+func (b *BoolVar) tseitin(first CSPClause, cs []CSPConstraint, auxvars []*BoolVar) (CSPClause, []CSPConstraint, []*BoolVar) {
+	return append(first, b), cs, auxvars
 }
 
 // simplify
-func (c CSPClause) isSimple() bool {
+func isSimple(c CSPClause) bool {
 	count := 0
 	for _, l := range c {
 		if !l.isSimple() {
@@ -112,10 +119,6 @@ func (c CSPClause) isSimple() bool {
 	return true
 }
 
-func (c *CSPOperator) isSimple() bool {
-	panic("")
-}
-
 func (c *CSPComparator) isSimple() bool {
 	return c.s.Size() <= 1
 }
@@ -124,26 +127,26 @@ func (b *BoolVar) isSimple() bool {
 	return true
 }
 
-func Simplify(c CSPLiteral, simplecnf []CSPClause, vars []*BoolVar) ([]CSPClause, []*BoolVar) {
-	tmpCNF = tmpCNF[:0]
-	tmpCNF, vars = c.tocnf(tmpCNF, vars)
-	for _, clause := range tmpCNF {
-		if clause.isSimple() {
-			simplecnf = append(simplecnf, clause)
+func simplify(c CSPConstraint, cnf []CSPClause, auxvars []*BoolVar, tmp []CSPClause) ([]CSPClause, []*BoolVar) {
+	tmp, auxvars = c.tocnf(tmp, auxvars)
+	for _, clause := range tmp {
+		if isSimple(clause) {
+			cnf = append(cnf, clause)
 		} else {
 			first := make([]CSPLiteral, 0, len(clause))
 			for _, lit := range clause {
 				if lit.isSimple() {
 					first = append(first, lit)
 				} else {
-					p := NewAuxBoolVar(false)
-					vars = append(vars, p)
+					p := newAuxBoolVar(uint(len(auxvars)), false)
+					q, _ := p.Not().(*BoolVar)
+					auxvars = append(auxvars, p)
 					first = append(first, p)
-					simplecnf = append(simplecnf, CSPClause{p.Not(), lit})
+					cnf = append(cnf, CSPClause{lit, q})
 				}
 			}
-			simplecnf = append(simplecnf, CSPClause(first))
+			cnf = append(cnf, CSPClause(first))
 		}
 	}
-	return simplecnf, vars
+	return cnf, auxvars
 }

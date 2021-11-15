@@ -3,79 +3,87 @@ package csp
 // Order encode: http://bach.istc.kobe-u.ac.jp/sugar/docs/order-encoding/
 
 import (
-	// "fmt"
-	// "log"
+	_ "errors"
+	_ "fmt"
+	"log"
 	"sort"
 )
 
-type SATCode int
-type SATClause []SATCode
+// var (
+// 	baseBool    map[uint]int
+// 	baseInt     map[uint]int
+// 	baseAuxBool map[uint]int
+// 	baseAuxInt  map[uint]int
+// )
 
-// SATcode for a*x <= b, x in dom
-func le(base SATCode, dom *DomainSet, a, b int) (SATCode, bool) {
-	if a > 0 {
-		c := floorDiv(b, a)
-		pos, ok := dom.Contains(c)
-		if pos == 0 && ok == false {
-			return 0, false // falselit
-		} else if pos == dom.Size()-1 {
-			return 1, false // truelit
-		}
-		return base + SATCode(pos), true
-	} else {
-		c := ceilDiv(b, a) - 1
-		pos, ok := dom.Contains(c)
-		if pos == 0 && ok == false {
-			return 1, false // truelit
-		} else if pos == dom.Size()-1 {
-			return 0, false // falselit
-		}
-		return -(base + SATCode(pos)), true
+type Clause []int
+
+// func makeBase(x []*IntVar, auxx []*IntVar, b []*BoolVar, auxb []*BoolVar) {
+// 	baseBool = make(map[uint]int)
+// 	baseInt = make(map[uint]int)
+// 	baseAuxBool = make(map[uint]int)
+// 	baseAuxInt = make(map[uint]int)
+// 	c := 1
+// 	for _, v := range x {
+// 		baseInt[v.id] = c
+// 		c += v.domain.Size() - 1
+// 	}
+// 	for _, v := range auxx {
+// 		baseAuxInt[v.id] = c
+// 		c += v.domain.Size() - 1
+// 	}
+// 	for _, v := range b {
+// 		baseBool[v.id] = c
+// 		c += 1
+// 	}
+// 	for _, v := range auxb {
+// 		baseAuxBool[v.id] = c
+// 		c += 1
+// 	}
+// }
+
+// func (x *BoolVar) getSATCodeBase(b map[uint]int) int {
+// 	if x.aux == false {
+// 		return baseBool[x.id]
+// 	} else {
+// 		return baseAuxBool[x.id]
+// 	}
+// }
+
+// func (x *IntVar) getSATCodeBase() int {
+// 	return baseInt[x.id]
+// }
+
+func Encode(c CSPClause, baseCode map[uint]int) ([]Clause, bool) {
+	cs := []Clause{Clause{}}
+	unsat := false
+	var ok bool
+	for _, p := range c {
+		cs, ok = p.encode(cs, baseCode)
+		unsat = unsat || ok
 	}
+	return cs, unsat
 }
 
-func applyOr(codes []SATClause, p SATCode) []SATClause {
-	if len(codes) == 0 {
-		return []SATClause{SATClause{p}}
+func applyOr(cs []Clause, p ...int) []Clause {
+	for i, _ := range cs {
+		cs[i] = append(cs[i], p...)
 	}
-	for i, _ := range codes {
-		codes[i] = append(codes[i], p)
-	}
-	return codes
+	return cs
 }
 
-func Encode(cnf []CSPClause) []SATClause {
-	codes := []SATClause{}
-	for _, lit := range cnf {
-		for _, c := range lit.encode() {
-			codes = append(codes, c)
-		}
-	}
-	return codes
-}
-
-func (c CSPClause) encode() []SATClause {
-	codes := []SATClause{}
-	for _, lit := range c {
-		codes = lit.encode(codes)
-	}
-	return codes
-}
-
-func (b *BoolVar) encode(codes []SATClause) []SATClause {
-	base := b.getSATCodeBase()
+func (b *BoolVar) encode(codes []Clause, baseCode map[uint]int) ([]Clause, bool) {
+	base := baseCode[b.id]
+	var p int
 	if b.neg == false {
-		return applyOr(codes, base)
+		p = base
 	} else {
-		return applyOr(codes, -base)
+		p = -base
 	}
+	return applyOr(codes, p), true
 }
 
-func (c *CSPOperator) encode(codes []SATClause) []SATClause {
-	panic("SAT encoding cannot be applied to CSPOperator")
-}
-
-func (c *CSPComparator) encode(codes []SATClause) []SATClause {
+func (c *CSPComparator) encode(codes []Clause, baseCode map[uint]int) ([]Clause, bool) {
 	if c.op == CSPOperatorLeZero {
 		vars := make([]*IntVar, 0, len(c.s.coef))
 		for k, _ := range c.s.coef {
@@ -92,74 +100,115 @@ func (c *CSPComparator) encode(codes []SATClause) []SATClause {
 				return s1 < s2
 			}
 		})
-		return encodeIntVar(codes, vars, c.s, -c.s.b)
+		if cs, ok := encodeIntVar([]Clause{}, make(Clause, 0, len(vars)), vars, c.s, -c.s.b, baseCode); ok {
+			switch {
+			case len(cs) == 0: // trueLit
+				return []Clause{}, true
+			case len(cs) == 1: // simple
+				return applyOr(codes, cs[0]...), true
+			case len(codes) == 1:
+				return applyOr(cs, codes[0]...), true
+			default:
+				result := make([]Clause, 0, len(cs)*len(codes))
+				for _, x := range codes {
+					for _, y := range cs {
+						p := make(Clause, 0, len(x)+len(y))
+						p = append(p, x...)
+						p = append(p, y...)
+						result = append(result, p)
+					}
+				}
+				return result, true
+			}
+		} else {
+			// falseLit
+			return codes, false
+		}
 	} else {
-		panic("SAT encoding can be applied to LeZero")
+		log.Fatal("SAT encoding can be applied to LeZero")
+		return codes, false
 	}
 }
 
 // Encoding based on the formula: a_1 x_1 + ... a_n x_n <= b
-func encodeIntVar(codes []SATClause, vars []*IntVar, s *Sum, rhs int) []SATClause {
+func encodeIntVar(cs []Clause, lit Clause, vars []*IntVar, s *Sum, rhs int, baseCode map[uint]int) ([]Clause, bool) {
+	// log.Println("encodeIntVar: start", "cs", cs, "vars", vars, "rhs", rhs)
 	a := s.coef[vars[0]]
-	base := vars[0].getSATCodeBase()
+	base := baseCode[vars[0].id]
 	dom := vars[0].domain
+	var ok bool
 	if len(vars) == 1 {
-		p, ok := le(base, dom, a, rhs)
-		if ok {
-			return applyOr(codes, p)
-		} else if p == 1 { // truelit
-			return []SATClause{SATClause{}}
-		} else { // falselit
-			return codes
-		}
+		return encodeLe(cs, lit, base, dom, a, rhs)
 	}
 	if a > 0 {
-		satcode := []SATClause{}
-		for i, b := range dom.x {
-			// assume x_1 >= b. Get clauses sum a_ix_i <= c - a_1b. Put literal x_1 <= b-1 to the clauses
-			if i == 0 {
-				tmp := encodeIntVar(codes, vars[1:], s, rhs-a*b)
-				for _, c := range tmp {
-					if len(c) != 0 {
-						satcode = append(satcode, c)
-					}
-				}
-			} else {
-				p := base + SATCode(i-1) // literal x <= b - 1
-				tmp := encodeIntVar(codes, vars[1:], s, rhs-a*b)
-				for _, c := range applyOr(tmp, p) {
-					satcode = append(satcode, c)
-				}
-			}
+		b := dom.x[0]
+		cs, ok = encodeIntVar(cs, lit, vars[1:], s, rhs-a*b, baseCode)
+		if ok == false {
+			return cs, ok
 		}
-		if len(satcode) == 0 {
-			return codes
-		} else {
-			return satcode
+		for i, b := range dom.x[1:] {
+			cs, ok = encodeIntVar(cs, append(lit, base+i), vars[1:], s, rhs-a*b, baseCode)
+			if ok == false {
+				return cs, ok
+			}
 		}
 	} else { // assume a < 0
-		satcode := []SATClause{}
-		for i, b := range dom.x {
-			// assume x_1 <= b. Get clauses sum a_ix_i <= c - a_1b. Put literal x_1 > b to the clauses
-			if i != dom.Size()-1 {
-				p := -(base + SATCode(i)) // literal x > b
-				tmp := encodeIntVar(codes, vars[1:], s, rhs-a*b)
-				for _, c := range applyOr(tmp, p) {
-					satcode = append(satcode, c)
-				}
-			} else {
-				tmp := encodeIntVar(codes, vars[1:], s, rhs-a*b)
-				for _, c := range tmp {
-					if len(c) != 0 {
-						satcode = append(satcode, c)
-					}
-				}
+		for i, b := range dom.x[:dom.Size()-1] {
+			cs, ok = encodeIntVar(cs, append(lit, -(base+i)), vars[1:], s, rhs-a*b, baseCode)
+			if ok == false {
+				return cs, ok
 			}
 		}
-		if len(satcode) == 0 {
-			return codes
-		} else {
-			return satcode
+		b := dom.x[dom.Size()-1]
+		cs, ok = encodeIntVar(cs, lit, vars[1:], s, rhs-a*b, baseCode)
+		if ok == false {
+			return cs, ok
 		}
 	}
+	return cs, true
+}
+
+// SATcode for a*x <= b, x in dom
+func encodeLe(cs []Clause, lit Clause, base int, dom DomainSet, a, b int) ([]Clause, bool) {
+	if a > 0 {
+		c := floorDiv(b, a)
+		// log.Println("base", base, "a", a, "b", b, "c", c, "dom", dom.x)
+		pos, ok := dom.Contains(c)
+		switch {
+		case pos == ErrDomainLower && ok == false: // falseLit
+			if len(lit) == 0 {
+				return cs, false
+			} else {
+				return append(cs, clauseCopy(lit)), true
+			}
+		case pos == ErrDomainUpper && ok == false: // trueLit
+			return cs, true
+		default:
+			lit = append(lit, base+pos)
+			return append(cs, clauseCopy(lit)), true
+		}
+	} else {
+		c := ceilDiv(b, a) - 1
+		// log.Println("base", base, "a", a, "b", b, "c", c, "dom", dom.x)
+		pos, ok := dom.Contains(c)
+		switch {
+		case pos == ErrDomainLower && ok == false:
+			return cs, true
+		case pos == ErrDomainUpper && ok == false:
+			if len(lit) == 0 {
+				return cs, false
+			} else {
+				return append(cs, clauseCopy(lit)), true
+			}
+		default:
+			lit = append(lit, -(base + pos))
+			return append(cs, clauseCopy(lit)), true
+		}
+	}
+}
+
+func clauseCopy(s Clause) Clause {
+	t := make([]int, len(s))
+	copy(t, []int(s))
+	return Clause(t)
 }

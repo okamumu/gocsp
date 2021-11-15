@@ -1,255 +1,141 @@
 package csp
 
 import (
-	// "log"
-	"strconv"
+	_ "fmt"
+	"log"
 )
 
-type VarLabel string
-type CSPOperatorType int
+type CSP struct {
+	varId           uint
+	boolVars        []*BoolVar
+	auxBoolVars     []*BoolVar
+	intVars         []*IntVar
+	auxIntVars      []*IntVar
+	constraints     []CSPConstraint
+	cnf             []CSPClause
+	cnfDone         []bool      // indicator whether the simplify is done or note
+	cnfStart        []int       // the index to start CSPClause for the corresponding CSP constraint
+	cnfStartAuxBool []int       // the index to start auxbool for the corresponding CSP constraint
+	tmpCNF          []CSPClause // this is tempolary used in simplify
 
-const (
-	CSPOperatorAnd CSPOperatorType = iota + 1
-	CSPOperatorOr
-	CSPOperatorLeZero
-	CSPOperatorGeZero
-	CSPOperatorEqZero
-	CSPOperatorNeZero
-)
-
-var tmpDomainSet []int // this is used for domain
-var auxcount int       // this is used for numbering of auxvars
-var tmpCNF []CSPClause // this is used in simplify
-var satBaseCodes map[VarLabel]SATCode
-var satcount SATCode
-
-func init() {
-	tmpDomainSet = make([]int, 0)
-	tmpCNF = make([]CSPClause, 0)
-	auxcount = 0
-	satBaseCodes = make(map[VarLabel]SATCode)
-	satcount = 1
+	baseCode map[uint]int // SAT code base
+	sat      []Clause     // SAT code
 }
 
-type BoolVar struct {
-	label VarLabel
-	neg   bool
-}
+func NewCSP() *CSP {
+	return &CSP{
+		varId:           0,
+		boolVars:        make([]*BoolVar, 0),
+		auxBoolVars:     make([]*BoolVar, 0),
+		intVars:         make([]*IntVar, 0),
+		auxIntVars:      make([]*IntVar, 0),
+		constraints:     make([]CSPConstraint, 0),
+		cnf:             make([]CSPClause, 0),
+		cnfDone:         make([]bool, 0),
+		cnfStart:        make([]int, 0),
+		cnfStartAuxBool: make([]int, 0),
+		tmpCNF:          make([]CSPClause, 0),
 
-func NewBoolVar(label VarLabel, neg bool) *BoolVar {
-	return &BoolVar{
-		label: label,
-		neg:   neg,
+		baseCode: make(map[uint]int),
+		sat:      make([]Clause, 0),
 	}
 }
 
-func (b *BoolVar) getSATCodeBase() SATCode {
-	if base, ok := satBaseCodes[b.label]; ok {
-		return base
+func (c *CSP) NewBoolVar(neg bool) *BoolVar {
+	v := newBoolVar(c.varId, neg)
+	c.boolVars = append(c.boolVars, v)
+	c.varId++
+	return v
+}
+
+func (c *CSP) NewIntVarWithRange(lb, ub int) *IntVar {
+	x := make([]int, ub-lb+1)
+	for i, _ := range x {
+		x[i] = lb + i
+	}
+	d := DomainSet{x: x}
+	v := newIntVar(c.varId, d)
+	c.intVars = append(c.intVars, v)
+	c.varId++
+	return v
+}
+
+// AddConstraint
+// The method to add a CSP constraint; Comparators, Operators and Bool
+// The argument `decomp` indicates whether the CSP constraint is decomposed to up to three terms or not
+// for all the linear functions in the CSP constraint.
+func (c *CSP) AddConstraint(x CSPConstraint, decomp bool) {
+	if decomp {
+		var cs CSPConstraint
+		start := len(c.auxIntVars)
+		cs, c.auxIntVars = x.Decomp(c.auxIntVars)
+		// rewrite id
+		for k := start; k < len(c.auxIntVars); k++ {
+			c.auxIntVars[k].id = c.varId
+			c.varId++
+		}
+		c.constraints = append(c.constraints, cs.ToLeZero())
+		c.cnfDone = append(c.cnfDone, false)
+		c.cnfStart = append(c.cnfStart, 0)
+		c.cnfStartAuxBool = append(c.cnfStartAuxBool, 0)
 	} else {
-		base = satcount
-		satBaseCodes[b.label] = base
-		satcount++
-		return base
+		c.constraints = append(c.constraints, x.ToLeZero())
 	}
 }
 
-func NewAuxBoolVar(neg bool) *BoolVar {
-	auxcount++
-	return &BoolVar{
-		label: VarLabel("auxbool" + strconv.Itoa(auxcount)),
-		neg:   neg,
-	}
+// To save the current states (constraints and codes)
+func (c *CSP) Save() int {
+	// TODO: should be implemented
+	return 0
 }
 
-type IntVar struct {
-	label  VarLabel
-	domain *DomainSet
+// To load the status
+func (c *CSP) Load(num int) {
+	// TODO: should be implemented
 }
 
-func (v *IntVar) getSATCodeBase() SATCode {
-	if base, ok := satBaseCodes[v.label]; ok {
-		return base
-	} else {
-		base = satcount
-		satBaseCodes[v.label] = base
-		satcount += SATCode(v.domain.Size() - 1)
-		return base
-	}
-}
-
-func NewIntVar(label VarLabel, domain *DomainSet) *IntVar {
-	return &IntVar{
-		label:  label,
-		domain: domain,
-	}
-}
-
-func NewAuxIntVar(domain *DomainSet) *IntVar {
-	auxcount++
-	return &IntVar{
-		label:  VarLabel("auxint" + strconv.Itoa(auxcount)),
-		domain: domain,
-	}
-}
-
-type CSPLiteral interface {
-	Not() CSPLiteral
-	ToLeZero() CSPLiteral
-	Decomp([]*IntVar) (CSPLiteral, []*IntVar)
-	tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, []*BoolVar)
-	flattenOr(result []CSPLiteral) []CSPLiteral
-	testin(first []CSPLiteral, result []CSPLiteral, auxvars []*BoolVar) ([]CSPLiteral, []CSPLiteral, []*BoolVar)
-	isSimple() bool
-	encode(codes []SATClause) []SATClause
-}
-
-type CSPComparator struct {
-	op CSPOperatorType
-	s  *Sum
-}
-
-type CSPOperator struct {
-	op   CSPOperatorType
-	args []CSPLiteral
-}
-
-func CSPAnd(args ...CSPLiteral) *CSPOperator {
-	return &CSPOperator{
-		op:   CSPOperatorAnd,
-		args: args,
-	}
-}
-
-func CSPOr(args ...CSPLiteral) *CSPOperator {
-	return &CSPOperator{
-		op:   CSPOperatorOr,
-		args: args,
-	}
-}
-
-func CSPImp(x, y CSPLiteral) CSPLiteral {
-	return CSPOr(x.Not(), y)
-}
-
-func CSPIff(x, y CSPLiteral) CSPLiteral {
-	return CSPAnd(CSPOr(x.Not(), y), CSPOr(x, y.Not()))
-}
-
-func CSPLeZero(s *Sum) *CSPComparator {
-	return &CSPComparator{
-		op: CSPOperatorLeZero,
-		s:  s,
-	}
-}
-
-func CSPGeZero(s *Sum) *CSPComparator {
-	return &CSPComparator{
-		op: CSPOperatorGeZero,
-		s:  s,
-	}
-}
-
-func CSPEqZero(s *Sum) *CSPComparator {
-	return &CSPComparator{
-		op: CSPOperatorEqZero,
-		s:  s,
-	}
-}
-
-func CSPNeZero(s *Sum) *CSPComparator {
-	return &CSPComparator{
-		op: CSPOperatorNeZero,
-		s:  s,
-	}
-}
-
-// not
-
-func (c *CSPOperator) Not() CSPLiteral {
-	switch c.op {
-	case CSPOperatorAnd:
-		newargs := make([]CSPLiteral, 0, len(c.args))
-		for _, x := range c.args {
-			newargs = append(newargs, x.Not())
+func (c *CSP) CNF() {
+	for i, cs := range c.constraints {
+		if c.cnfDone[i] == false {
+			c.cnfStart[i] = len(c.cnf)
+			c.cnfStartAuxBool[i] = len(c.auxBoolVars)
+			c.cnf, c.auxBoolVars = simplify(cs, c.cnf, c.auxBoolVars, c.tmpCNF)
+			// rewrite id
+			for k := c.cnfStartAuxBool[i]; k < len(c.cnfStartAuxBool); k++ {
+				c.auxBoolVars[k].id = c.varId
+				c.varId++
+			}
+			c.cnfDone[i] = true
 		}
-		return CSPOr(newargs...)
-	case CSPOperatorOr:
-		newargs := make([]CSPLiteral, 0, len(c.args))
-		for _, x := range c.args {
-			newargs = append(newargs, x.Not())
+	}
+}
+
+func (c *CSP) genBase() {
+	code := 1
+	for _, v := range c.intVars {
+		c.baseCode[v.id] = code
+		code += v.domain.Size() - 1
+	}
+	for _, v := range c.auxIntVars {
+		c.baseCode[v.id] = code
+		code += v.domain.Size() - 1
+	}
+	for _, v := range c.boolVars {
+		c.baseCode[v.id] = code
+		code += 1
+	}
+	for _, v := range c.auxBoolVars {
+		c.baseCode[v.id] = code
+		code += 1
+	}
+}
+
+func (c *CSP) Encode() {
+	for _, x := range c.cnf {
+		if tmp, ok := Encode(x, c.baseCode); ok == false {
+			log.Fatal("UNSAT")
+		} else {
+			c.sat = append(c.sat, tmp...)
 		}
-		return CSPAnd(newargs...)
-	default:
-		panic("")
 	}
-}
-
-func (c *CSPComparator) Not() CSPLiteral {
-	s := c.s.copy()
-	switch c.op {
-	case CSPOperatorLeZero:
-		s.AddConst(-1)
-		return CSPGeZero(s)
-	case CSPOperatorGeZero:
-		s.AddConst(1)
-		return CSPLeZero(s)
-	case CSPOperatorEqZero:
-		return CSPNeZero(s)
-	case CSPOperatorNeZero:
-		return CSPEqZero(s)
-	default:
-		panic("")
-	}
-}
-
-func (b *BoolVar) Not() CSPLiteral {
-	nb := NewBoolVar(b.label, b.neg)
-	nb.neg = !nb.neg
-	return nb
-}
-
-// ToLeZero
-func (c *CSPComparator) ToLeZero() CSPLiteral {
-	switch c.op {
-	case CSPOperatorEqZero:
-		s1 := c.s.copy()
-		s2 := c.s.copy()
-		return CSPAnd(CSPLeZero(s1), CSPLeZero(s2.Neg()))
-	case CSPOperatorNeZero:
-		s1 := c.s.copy()
-		s2 := c.s.copy()
-		return CSPOr(CSPLeZero(s1.AddConst(1)), CSPLeZero(s2.Neg().AddConst(1)))
-	case CSPOperatorGeZero:
-		s1 := c.s.copy()
-		return CSPLeZero(s1.Neg())
-	case CSPOperatorLeZero:
-		s1 := c.s.copy()
-		return CSPLeZero(s1)
-	default:
-		panic("")
-	}
-}
-
-func (c *CSPOperator) ToLeZero() CSPLiteral {
-	switch c.op {
-	case CSPOperatorAnd:
-		newargs := make([]CSPLiteral, 0, len(c.args))
-		for _, x := range c.args {
-			newargs = append(newargs, x.ToLeZero())
-		}
-		return CSPAnd(newargs...)
-	case CSPOperatorOr:
-		newargs := make([]CSPLiteral, 0, len(c.args))
-		for _, x := range c.args {
-			newargs = append(newargs, x.ToLeZero())
-		}
-		return CSPOr(newargs...)
-	default:
-		panic("")
-	}
-}
-
-func (b *BoolVar) ToLeZero() CSPLiteral {
-	return NewBoolVar(b.label, b.neg)
 }

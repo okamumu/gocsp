@@ -1,5 +1,9 @@
 package csp
 
+import (
+	"fmt"
+)
+
 type Sum struct {
 	coef map[*IntVar]int
 	b    int
@@ -21,11 +25,20 @@ func NewSumFromInt(v *IntVar) *Sum {
 	}
 }
 
+func (s *Sum) String() string {
+	str := "["
+	for k, v := range s.coef {
+		str += fmt.Sprintf("+(%d)*%s", v, k.String())
+	}
+	str += fmt.Sprintf("+(%d)]", s.b)
+	return str
+}
+
 func (s *Sum) Size() int {
 	return len(s.coef)
 }
 
-func (s *Sum) Func(other *Sum, f func(int, int) int) *Sum {
+func (s *Sum) ApplyFunc(other *Sum, f func(int, int) int) *Sum {
 	for k, v := range other.coef {
 		if tmp := f(s.coef[k], v); tmp != 0 {
 			s.coef[k] = tmp
@@ -51,13 +64,13 @@ func (s *Sum) AddConst(b int) *Sum {
 }
 
 func (s *Sum) Add(other *Sum) *Sum {
-	return s.Func(other, func(x, y int) int {
+	return s.ApplyFunc(other, func(x, y int) int {
 		return x + y
 	})
 }
 
 func (s *Sum) Sub(other *Sum) *Sum {
-	return s.Func(other, func(x, y int) int {
+	return s.ApplyFunc(other, func(x, y int) int {
 		return x - y
 	})
 }

@@ -2,6 +2,7 @@ package csp
 
 import (
 	// "fmt"
+	"log"
 	"sort"
 )
 
@@ -32,71 +33,74 @@ func sortVars(coef map[*IntVar]int) []*IntVar {
 	return vars
 }
 
-// This function is to decompose a linear constraint so that they become up to three terms.
-func (s *Sum) decompsum(auxvars []*IntVar) ([]CSPLiteral, []*IntVar) {
-	lits := make([]CSPLiteral, 0)
+// decompSum
+// The function is to decompose a linear constraint to up to three terms
+func decompSum(s *Sum, auxvars []*IntVar) ([]CSPConstraint, []*IntVar) {
+	cs := make([]CSPConstraint, 0)
 	for s.Size() > 3 {
 		vars := sortVars(s.coef)
 		x, y := vars[0], vars[1]
 		a, b := s.coef[x], s.coef[y]
-		d := x.domain.copy()
-		d.Func(y.domain, func(x, y int) int {
+		d := x.domain.Copy()
+		d.CrossApplyFunc(y.domain, func(x, y int) int {
 			return a*x + b*y
 		})
-		z := NewAuxIntVar(d)
+		z := NewAuxIntVar(uint(len(auxvars)), d)
 		auxvars = append(auxvars, z)
 		coef := map[*IntVar]int{x: a, y: b, z: -1}
 		f := NewSum(coef, 0)
 		s.Sub(f)
-		lits = append(lits, CSPEqZero(f))
+		cs = append(cs, CSPEqZero(f))
 	}
-	return lits, auxvars
+	return cs, auxvars
 }
 
-func (c *CSPComparator) Decomp(auxvars []*IntVar) (CSPLiteral, []*IntVar) {
-	var lits []CSPLiteral
+func (c *CSPComparator) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
+	var cs []CSPConstraint
 	switch c.op {
 	case CSPOperatorEqZero:
-		lits, auxvars = c.s.decompsum(auxvars)
-		lits = append(lits, CSPEqZero(c.s))
+		cs, auxvars = decompSum(c.s, auxvars)
+		cs = append(cs, CSPEqZero(c.s))
 	case CSPOperatorNeZero:
-		lits, auxvars = c.s.decompsum(auxvars)
-		lits = append(lits, CSPNeZero(c.s))
+		cs, auxvars = decompSum(c.s, auxvars)
+		cs = append(cs, CSPNeZero(c.s))
 	case CSPOperatorLeZero:
-		lits, auxvars = c.s.decompsum(auxvars)
-		lits = append(lits, CSPLeZero(c.s))
+		cs, auxvars = decompSum(c.s, auxvars)
+		cs = append(cs, CSPLeZero(c.s))
 	case CSPOperatorGeZero:
-		lits, auxvars = c.s.decompsum(auxvars)
-		lits = append(lits, CSPGeZero(c.s))
+		cs, auxvars = decompSum(c.s, auxvars)
+		cs = append(cs, CSPGeZero(c.s))
 	default:
-		panic("")
+		log.Fatal("Error: operator does not exist")
+		return nil, auxvars
 	}
-	if len(lits) == 1 {
-		return lits[0], auxvars
+	if len(cs) == 1 {
+		return cs[0], auxvars
 	} else {
-		return CSPAnd(lits...), auxvars
+		return CSPAnd(cs...), auxvars
 	}
 }
 
-func (c *CSPOperator) Decomp(auxvars []*IntVar) (CSPLiteral, []*IntVar) {
+func (c *CSPOperator) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
 	switch c.op {
 	case CSPOperatorAnd:
-		args := make([]CSPLiteral, len(c.args))
+		args := make([]CSPConstraint, len(c.args))
 		for i, x := range c.args {
 			args[i], auxvars = x.Decomp(auxvars)
 		}
 		return CSPAnd(args...), auxvars
 	case CSPOperatorOr:
-		args := make([]CSPLiteral, len(c.args))
+		args := make([]CSPConstraint, len(c.args))
 		for i, x := range c.args {
 			args[i], auxvars = x.Decomp(auxvars)
 		}
 		return CSPOr(args...), auxvars
 	default:
-		panic("")
+		log.Fatal("Error: operator does not exist")
+		return nil, auxvars
 	}
 }
 
-func (b *BoolVar) Decomp(auxvars []*IntVar) (CSPLiteral, []*IntVar) {
+func (b *BoolVar) Decomp(auxvars []*IntVar) (CSPConstraint, []*IntVar) {
 	return b, auxvars
 }
