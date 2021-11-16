@@ -19,7 +19,7 @@ type CSP struct {
 	tmpCNF          []CSPClause // this is tempolary used in simplify
 
 	baseCode map[uint]int // SAT code base
-	sat      []Clause     // SAT code
+	sat      [][]int      // SAT code
 }
 
 func NewCSP() *CSP {
@@ -37,7 +37,7 @@ func NewCSP() *CSP {
 		tmpCNF:          make([]CSPClause, 0),
 
 		baseCode: make(map[uint]int),
-		sat:      make([]Clause, 0),
+		sat:      make([][]int, 0),
 	}
 }
 
@@ -101,7 +101,7 @@ func (c *CSP) CNF() {
 			c.cnfStartAuxBool[i] = len(c.auxBoolVars)
 			c.cnf, c.auxBoolVars = simplify(cs, c.cnf, c.auxBoolVars, c.tmpCNF)
 			// rewrite id
-			for k := c.cnfStartAuxBool[i]; k < len(c.cnfStartAuxBool); k++ {
+			for k := c.cnfStartAuxBool[i]; k < len(c.auxBoolVars); k++ {
 				c.auxBoolVars[k].id = c.varId
 				c.varId++
 			}
@@ -114,17 +114,31 @@ func (c *CSP) genBase() {
 	code := 1
 	for _, v := range c.intVars {
 		c.baseCode[v.id] = code
+		// for k := 0; k < v.domain.Size()-1; k++ {
+		// 	log.Println("int", v, "<=", v.domain.x[k], "code", code+k)
+		// }
+		for k := 0; k < v.domain.Size()-2; k++ {
+			c.sat = append(c.sat, []int{-(code + k), code + k + 1})
+		}
 		code += v.domain.Size() - 1
 	}
 	for _, v := range c.auxIntVars {
 		c.baseCode[v.id] = code
+		// for k := 0; k < v.domain.Size()-1; k++ {
+		// 	log.Println("aux int", v, "<=", v.domain.x[k], "code", code+k)
+		// }
+		for k := 0; k < v.domain.Size()-2; k++ {
+			c.sat = append(c.sat, []int{-(code + k), code + k + 1})
+		}
 		code += v.domain.Size() - 1
 	}
 	for _, v := range c.boolVars {
+		// log.Println("bool", v, "code", code)
 		c.baseCode[v.id] = code
 		code += 1
 	}
 	for _, v := range c.auxBoolVars {
+		// log.Println("aux bool", v, "code", code)
 		c.baseCode[v.id] = code
 		code += 1
 	}
@@ -133,8 +147,10 @@ func (c *CSP) genBase() {
 func (c *CSP) Encode() {
 	for _, x := range c.cnf {
 		if tmp, ok := Encode(x, c.baseCode); ok == false {
-			log.Fatal("UNSAT")
+			log.Fatal("UNSAT", x)
 		} else {
+			// log.Println("CNF", x)
+			// log.Println("Code", tmp)
 			c.sat = append(c.sat, tmp...)
 		}
 	}

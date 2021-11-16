@@ -5,6 +5,30 @@ import (
 	"testing"
 )
 
+func toDimacs(sat [][]int) {
+	max := 0
+	for _, c := range sat {
+		for _, x := range c {
+			if x > 0 {
+				if max < x {
+					max = x
+				}
+			} else {
+				if max < -x {
+					max = -x
+				}
+			}
+		}
+	}
+	fmt.Println("p cnf", max, len(sat))
+	for _, c := range sat {
+		for _, x := range c {
+			fmt.Print(x, " ")
+		}
+		fmt.Println(0)
+	}
+}
+
 func TestEncode1(t *testing.T) {
 	baseCode := make(map[uint]int)
 	code := 1
@@ -22,7 +46,7 @@ func TestEncode1(t *testing.T) {
 		code++
 	}
 	fmt.Println(cnf)
-	sat := make([]Clause, 0)
+	sat := make([][]int, 0)
 	fmt.Println(baseCode)
 	for _, x := range cnf {
 		if tmp, ok := Encode(x, baseCode); ok == false {
@@ -60,7 +84,7 @@ func TestEncode2(t *testing.T) {
 	// 6: y <= 0
 	// 7: y <= 1
 	// 8: y <= 2
-	sat := make([]Clause, 0)
+	sat := make([][]int, 0)
 	for _, x := range cnf {
 		if tmp, ok := Encode(x, baseCode); ok == false {
 			fmt.Println("UNSAT")
@@ -93,7 +117,7 @@ func TestEncode3(t *testing.T) {
 	// 2: x <= 10
 	// 3: y <= 0
 	// 4: y <= 10
-	sat := make([]Clause, 0)
+	sat := make([][]int, 0)
 	for _, x := range cnf {
 		if tmp, ok := Encode(x, baseCode); ok == false {
 			fmt.Println("UNSAT")
@@ -131,7 +155,7 @@ func TestEncode4(t *testing.T) {
 	// 4: y <= 10
 	// 5: z <= 0
 	// 6: z <= 10
-	sat := make([]Clause, 0)
+	sat := make([][]int, 0)
 	for _, x := range cnf {
 		if tmp, ok := Encode(x, baseCode); ok == false {
 			fmt.Println("UNSAT")
@@ -164,7 +188,7 @@ func TestEncode5(t *testing.T) {
 	// 2: x <= 10
 	// 3: y <= 0
 	// 4: y <= 10
-	sat := make([]Clause, 0)
+	sat := make([][]int, 0)
 	for _, x := range cnf {
 		if tmp, ok := Encode(x, baseCode); ok == false {
 			fmt.Println("UNSAT")
@@ -197,7 +221,7 @@ func TestEncode6(t *testing.T) {
 	// 2: x <= 10
 	// 3: y <= 0
 	// 4: y <= 10
-	sat := make([]Clause, 0)
+	sat := make([][]int, 0)
 	for _, x := range cnf {
 		if tmp, ok := Encode(x, baseCode); ok == false {
 			fmt.Println("UNSAT")
@@ -246,7 +270,7 @@ func TestEncode7(t *testing.T) {
 	}
 	fmt.Println(auxx)
 	fmt.Println(auxb)
-	sat := make([]Clause, 0)
+	sat := make([][]int, 0)
 	for _, x := range cnf {
 		fmt.Println(x)
 		if tmp, ok := Encode(x, baseCode); ok == false {
@@ -258,25 +282,5 @@ func TestEncode7(t *testing.T) {
 	}
 	// fmt.Println(sat)
 
-	max := 0
-	for _, c := range sat {
-		for _, x := range c {
-			if x > 0 {
-				if max < x {
-					max = x
-				}
-			} else {
-				if max < -x {
-					max = -x
-				}
-			}
-		}
-	}
-	fmt.Println("p cnf", max, len(sat))
-	for _, c := range sat {
-		for _, x := range c {
-			fmt.Print(x, " ")
-		}
-		fmt.Println(0)
-	}
+	toDimacs([][]int(sat))
 }

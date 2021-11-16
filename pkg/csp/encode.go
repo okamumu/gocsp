@@ -16,8 +16,6 @@ import (
 // 	baseAuxInt  map[uint]int
 // )
 
-type Clause []int
-
 // func makeBase(x []*IntVar, auxx []*IntVar, b []*BoolVar, auxb []*BoolVar) {
 // 	baseBool = make(map[uint]int)
 // 	baseInt = make(map[uint]int)
@@ -54,8 +52,8 @@ type Clause []int
 // 	return baseInt[x.id]
 // }
 
-func Encode(c CSPClause, baseCode map[uint]int) ([]Clause, bool) {
-	cs := []Clause{Clause{}}
+func Encode(c CSPClause, baseCode map[uint]int) ([][]int, bool) {
+	cs := [][]int{[]int{}}
 	unsat := false
 	var ok bool
 	for _, p := range c {
@@ -65,14 +63,14 @@ func Encode(c CSPClause, baseCode map[uint]int) ([]Clause, bool) {
 	return cs, unsat
 }
 
-func applyOr(cs []Clause, p ...int) []Clause {
+func applyOr(cs [][]int, p ...int) [][]int {
 	for i, _ := range cs {
 		cs[i] = append(cs[i], p...)
 	}
 	return cs
 }
 
-func (b *BoolVar) encode(codes []Clause, baseCode map[uint]int) ([]Clause, bool) {
+func (b *BoolVar) encode(codes [][]int, baseCode map[uint]int) ([][]int, bool) {
 	base := baseCode[b.id]
 	var p int
 	if b.neg == false {
@@ -83,7 +81,7 @@ func (b *BoolVar) encode(codes []Clause, baseCode map[uint]int) ([]Clause, bool)
 	return applyOr(codes, p), true
 }
 
-func (c *CSPComparator) encode(codes []Clause, baseCode map[uint]int) ([]Clause, bool) {
+func (c *CSPComparator) encode(codes [][]int, baseCode map[uint]int) ([][]int, bool) {
 	if c.op == CSPOperatorLeZero {
 		vars := make([]*IntVar, 0, len(c.s.coef))
 		for k, _ := range c.s.coef {
@@ -100,19 +98,20 @@ func (c *CSPComparator) encode(codes []Clause, baseCode map[uint]int) ([]Clause,
 				return s1 < s2
 			}
 		})
-		if cs, ok := encodeIntVar([]Clause{}, make(Clause, 0, len(vars)), vars, c.s, -c.s.b, baseCode); ok {
+		if cs, ok := encodeIntVar([][]int{}, make([]int, 0, len(vars)), vars, c.s, -c.s.b, baseCode); ok {
+			// log.Println("encode", cs)
 			switch {
 			case len(cs) == 0: // trueLit
-				return []Clause{}, true
+				return [][]int{}, true
 			case len(cs) == 1: // simple
 				return applyOr(codes, cs[0]...), true
 			case len(codes) == 1:
 				return applyOr(cs, codes[0]...), true
 			default:
-				result := make([]Clause, 0, len(cs)*len(codes))
+				result := make([][]int, 0, len(cs)*len(codes))
 				for _, x := range codes {
 					for _, y := range cs {
-						p := make(Clause, 0, len(x)+len(y))
+						p := make([]int, 0, len(x)+len(y))
 						p = append(p, x...)
 						p = append(p, y...)
 						result = append(result, p)
@@ -131,7 +130,7 @@ func (c *CSPComparator) encode(codes []Clause, baseCode map[uint]int) ([]Clause,
 }
 
 // Encoding based on the formula: a_1 x_1 + ... a_n x_n <= b
-func encodeIntVar(cs []Clause, lit Clause, vars []*IntVar, s *Sum, rhs int, baseCode map[uint]int) ([]Clause, bool) {
+func encodeIntVar(cs [][]int, lit []int, vars []*IntVar, s *Sum, rhs int, baseCode map[uint]int) ([][]int, bool) {
 	// log.Println("encodeIntVar: start", "cs", cs, "vars", vars, "rhs", rhs)
 	a := s.coef[vars[0]]
 	base := baseCode[vars[0].id]
@@ -142,16 +141,21 @@ func encodeIntVar(cs []Clause, lit Clause, vars []*IntVar, s *Sum, rhs int, base
 	}
 	if a > 0 {
 		b := dom.x[0]
+		// log.Println("  **start encode", vars[0], b, cs)
 		cs, ok = encodeIntVar(cs, lit, vars[1:], s, rhs-a*b, baseCode)
+		// log.Println("  **end encode", vars[0], b, cs)
 		if ok == false {
 			return cs, ok
 		}
 		for i, b := range dom.x[1:] {
+			// log.Println("  **start encode", vars[0], b, cs)
 			cs, ok = encodeIntVar(cs, append(lit, base+i), vars[1:], s, rhs-a*b, baseCode)
+			// log.Println("  **end encode", vars[0], b, cs)
 			if ok == false {
 				return cs, ok
 			}
 		}
+		// log.Println("  *encode", cs)
 	} else { // assume a < 0
 		for i, b := range dom.x[:dom.Size()-1] {
 			cs, ok = encodeIntVar(cs, append(lit, -(base+i)), vars[1:], s, rhs-a*b, baseCode)
@@ -169,7 +173,7 @@ func encodeIntVar(cs []Clause, lit Clause, vars []*IntVar, s *Sum, rhs int, base
 }
 
 // SATcode for a*x <= b, x in dom
-func encodeLe(cs []Clause, lit Clause, base int, dom DomainSet, a, b int) ([]Clause, bool) {
+func encodeLe(cs [][]int, lit []int, base int, dom DomainSet, a, b int) ([][]int, bool) {
 	if a > 0 {
 		c := floorDiv(b, a)
 		// log.Println("base", base, "a", a, "b", b, "c", c, "dom", dom.x)
@@ -179,6 +183,7 @@ func encodeLe(cs []Clause, lit Clause, base int, dom DomainSet, a, b int) ([]Cla
 			if len(lit) == 0 {
 				return cs, false
 			} else {
+				// return cs, true
 				return append(cs, clauseCopy(lit)), true
 			}
 		case pos == ErrDomainUpper && ok == false: // trueLit
@@ -198,6 +203,7 @@ func encodeLe(cs []Clause, lit Clause, base int, dom DomainSet, a, b int) ([]Cla
 			if len(lit) == 0 {
 				return cs, false
 			} else {
+				// return cs, true
 				return append(cs, clauseCopy(lit)), true
 			}
 		default:
@@ -207,8 +213,8 @@ func encodeLe(cs []Clause, lit Clause, base int, dom DomainSet, a, b int) ([]Cla
 	}
 }
 
-func clauseCopy(s Clause) Clause {
+func clauseCopy(s []int) []int {
 	t := make([]int, len(s))
 	copy(t, []int(s))
-	return Clause(t)
+	return t
 }

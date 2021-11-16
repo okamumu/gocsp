@@ -7,7 +7,7 @@ import (
 
 type CSPLiteral interface {
 	isSimple() bool
-	encode([]Clause, map[uint]int) ([]Clause, bool)
+	encode([][]int, map[uint]int) ([][]int, bool)
 }
 
 type CSPClause []CSPLiteral
