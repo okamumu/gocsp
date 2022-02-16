@@ -30,18 +30,18 @@ func toDimacs(sat [][]int) {
 }
 
 func TestEncode1(t *testing.T) {
-	baseCode := make(map[uint]int)
+	baseCode := make(map[int]int)
 	code := 1
 	x := make([]*BoolVar, 10)
 	for i, _ := range x {
-		x[i] = newBoolVar(uint(i), false)
+		x[i] = newBoolVar(i)
 		baseCode[x[i].id] = code
 		code++
 	}
 	c := CSPOr(CSPAnd(x[0], x[1], CSPOr(x[2], x[3])), x[4], x[5], CSPAnd(x[6], x[7]))
 	cnf, vars := simplify(c, make([]CSPClause, 0), make([]*BoolVar, 0), make([]CSPClause, 0))
 	for i := 0; i < len(vars); i++ {
-		vars[i].id = uint(len(x) + i)
+		vars[i].id = len(x) + i
 		baseCode[vars[i].id] = code
 		code++
 	}
@@ -60,18 +60,18 @@ func TestEncode1(t *testing.T) {
 
 func TestEncode2(t *testing.T) {
 	// 3x + 5y -14 <= 0
-	baseCode := make(map[uint]int)
+	baseCode := make(map[int]int)
 	code := 1
-	x := newIntVar(0, DomainSet{[]int{0, 1, 2, 3, 4, 5}})
+	x := newIntVar(0, DomainSet{0, 1, 2, 3, 4, 5})
 	baseCode[x.id] = code
-	code += x.domain.Size() - 1
-	y := newIntVar(1, DomainSet{[]int{0, 1, 2, 3}})
+	code += x.domain.size() - 1
+	y := newIntVar(1, DomainSet{0, 1, 2, 3})
 	baseCode[y.id] = code
-	code += y.domain.Size() - 1
+	code += y.domain.size() - 1
 	c1 := CSPLeZero(NewSum(map[*IntVar]int{x: 3, y: 5}, -14))
 	cnf, vars := c1.tocnf(make([]CSPClause, 0), make([]*BoolVar, 0))
 	for i := 0; i < len(vars); i++ {
-		vars[i].id = uint(i + 2)
+		vars[i].id = i + 2
 		baseCode[vars[i].id] = code
 		code++
 	}
@@ -97,18 +97,18 @@ func TestEncode2(t *testing.T) {
 
 func TestEncode3(t *testing.T) {
 	// x + y -20 <= 0
-	baseCode := make(map[uint]int)
+	baseCode := make(map[int]int)
 	code := 1
-	x := newIntVar(0, DomainSet{[]int{0, 10, 20}})
+	x := newIntVar(0, DomainSet{0, 10, 20})
 	baseCode[x.id] = code
-	code += x.domain.Size() - 1
-	y := newIntVar(1, DomainSet{[]int{0, 10, 20}})
+	code += x.domain.size() - 1
+	y := newIntVar(1, DomainSet{0, 10, 20})
 	baseCode[y.id] = code
-	code += y.domain.Size() - 1
+	code += y.domain.size() - 1
 	c1 := CSPLeZero(NewSum(map[*IntVar]int{x: 1, y: 1}, -20))
 	cnf, vars := c1.tocnf(make([]CSPClause, 0), make([]*BoolVar, 0))
 	for i := 0; i < len(vars); i++ {
-		vars[i].id = uint(i + 2)
+		vars[i].id = i + 2
 		baseCode[vars[i].id] = code
 		code++
 	}
@@ -130,21 +130,21 @@ func TestEncode3(t *testing.T) {
 
 func TestEncode4(t *testing.T) {
 	// x + y -2z - 20 <= 0
-	baseCode := make(map[uint]int)
+	baseCode := make(map[int]int)
 	code := 1
-	x := newIntVar(0, DomainSet{[]int{0, 10, 20}})
+	x := newIntVar(0, DomainSet{0, 10, 20})
 	baseCode[x.id] = code
-	code += x.domain.Size() - 1
-	y := newIntVar(1, DomainSet{[]int{0, 10, 20}})
+	code += x.domain.size() - 1
+	y := newIntVar(1, DomainSet{0, 10, 20})
 	baseCode[y.id] = code
-	code += y.domain.Size() - 1
-	z := newIntVar(2, DomainSet{[]int{0, 10, 20}})
+	code += y.domain.size() - 1
+	z := newIntVar(2, DomainSet{0, 10, 20})
 	baseCode[z.id] = code
-	code += z.domain.Size() - 1
+	code += z.domain.size() - 1
 	c1 := CSPLeZero(NewSum(map[*IntVar]int{x: 1, y: 1, z: -2}, -20))
 	cnf, vars := c1.tocnf(make([]CSPClause, 0), make([]*BoolVar, 0))
 	for i := 0; i < len(vars); i++ {
-		vars[i].id = uint(i + 3)
+		vars[i].id = i + 3
 		baseCode[vars[i].id] = code
 		code++
 	}
@@ -168,18 +168,18 @@ func TestEncode4(t *testing.T) {
 
 func TestEncode5(t *testing.T) {
 	// x + y + 1 <= 0
-	baseCode := make(map[uint]int)
+	baseCode := make(map[int]int)
 	code := 1
-	x := newIntVar(0, DomainSet{[]int{0, 10, 20}})
+	x := newIntVar(0, DomainSet{0, 10, 20})
 	baseCode[x.id] = code
-	code += x.domain.Size() - 1
-	y := newIntVar(1, DomainSet{[]int{0, 10, 20}})
+	code += x.domain.size() - 1
+	y := newIntVar(1, DomainSet{0, 10, 20})
 	baseCode[y.id] = code
-	code += y.domain.Size() - 1
+	code += y.domain.size() - 1
 	c1 := CSPLeZero(NewSum(map[*IntVar]int{x: 1, y: 1}, 1))
 	cnf, vars := c1.tocnf(make([]CSPClause, 0), make([]*BoolVar, 0))
 	for i := 0; i < len(vars); i++ {
-		vars[i].id = uint(i + 2)
+		vars[i].id = i + 2
 		baseCode[vars[i].id] = code
 		code++
 	}
@@ -201,18 +201,18 @@ func TestEncode5(t *testing.T) {
 
 func TestEncode6(t *testing.T) {
 	// x + y - 1000 <= 0
-	baseCode := make(map[uint]int)
+	baseCode := make(map[int]int)
 	code := 1
-	x := newIntVar(0, DomainSet{[]int{0, 10, 20}})
+	x := newIntVar(0, DomainSet{0, 10, 20})
 	baseCode[x.id] = code
-	code += x.domain.Size() - 1
-	y := newIntVar(1, DomainSet{[]int{0, 10, 20}})
+	code += x.domain.size() - 1
+	y := newIntVar(1, DomainSet{0, 10, 20})
 	baseCode[y.id] = code
-	code += y.domain.Size() - 1
+	code += y.domain.size() - 1
 	c1 := CSPLeZero(NewSum(map[*IntVar]int{x: 1, y: 1}, -1000))
 	cnf, vars := c1.tocnf(make([]CSPClause, 0), make([]*BoolVar, 0))
 	for i := 0; i < len(vars); i++ {
-		vars[i].id = uint(i + 2)
+		vars[i].id = i + 2
 		baseCode[vars[i].id] = code
 		code++
 	}
@@ -233,20 +233,20 @@ func TestEncode6(t *testing.T) {
 }
 
 func TestEncode7(t *testing.T) {
-	baseCode := make(map[uint]int)
+	baseCode := make(map[int]int)
 	code := 1
 	x := make([]*BoolVar, 10)
 	for i, _ := range x {
-		x[i] = newBoolVar(uint(i), false)
+		x[i] = newBoolVar(i)
 		baseCode[x[i].id] = code
 		code++
 	}
 	y := make([]*IntVar, 10)
-	d := DomainSet{[]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}
+	d := DomainSet{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	for i, _ := range x {
-		y[i] = newIntVar(uint(len(x)+i), d)
+		y[i] = newIntVar(len(x)+i, d)
 		baseCode[y[i].id] = code
-		code += y[i].domain.Size() - 1
+		code += y[i].domain.size() - 1
 	}
 	var c1, c2, c3 CSPConstraint
 	auxx := make([]*IntVar, 0)
@@ -255,16 +255,16 @@ func TestEncode7(t *testing.T) {
 	c3, auxx = CSPEqZero(NewSum(map[*IntVar]int{y[0]: 4, y[1]: -3, y[2]: 1, y[8]: -20, y[9]: 8}, 3)).Decomp(auxx)
 	c := CSPOr(CSPOr(c1, x[1], CSPOr(x[2], c2)), x[4], x[5], CSPAnd(c3, x[7])).ToLeZero()
 	for i := 0; i < len(auxx); i++ {
-		auxx[i].id = uint(len(x) + len(y) + i)
+		auxx[i].id = len(x) + len(y) + i
 		baseCode[auxx[i].id] = code
-		code += auxx[i].domain.Size() - 1
+		code += auxx[i].domain.size() - 1
 	}
 	fmt.Print(c)
 	cnf := make([]CSPClause, 0)
 	auxb := make([]*BoolVar, 0)
 	cnf, auxb = simplify(c, cnf, auxb, []CSPClause{})
 	for i := 0; i < len(auxb); i++ {
-		auxb[i].id = uint(len(x) + len(y) + len(auxx) + i)
+		auxb[i].id = len(x) + len(y) + len(auxx) + i
 		baseCode[auxb[i].id] = code
 		code++
 	}

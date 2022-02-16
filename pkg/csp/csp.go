@@ -6,7 +6,7 @@ import (
 )
 
 type CSP struct {
-	varId           uint
+	varId           int
 	boolVars        []*BoolVar
 	auxBoolVars     []*BoolVar
 	intVars         []*IntVar
@@ -18,8 +18,8 @@ type CSP struct {
 	cnfStartAuxBool []int       // the index to start auxbool for the corresponding CSP constraint
 	tmpCNF          []CSPClause // this is tempolary used in simplify
 
-	baseCode map[uint]int // SAT code base
-	sat      [][]int      // SAT code
+	baseCode map[int]int // SAT code base
+	sat      [][]int     // SAT code
 }
 
 func NewCSP() *CSP {
@@ -36,24 +36,23 @@ func NewCSP() *CSP {
 		cnfStartAuxBool: make([]int, 0),
 		tmpCNF:          make([]CSPClause, 0),
 
-		baseCode: make(map[uint]int),
+		baseCode: make(map[int]int),
 		sat:      make([][]int, 0),
 	}
 }
 
-func (c *CSP) NewBoolVar(neg bool) *BoolVar {
-	v := newBoolVar(c.varId, neg)
+func (c *CSP) NewBoolVar() *BoolVar {
+	v := newBoolVar(c.varId)
 	c.boolVars = append(c.boolVars, v)
 	c.varId++
 	return v
 }
 
 func (c *CSP) NewIntVarWithRange(lb, ub int) *IntVar {
-	x := make([]int, ub-lb+1)
-	for i, _ := range x {
-		x[i] = lb + i
+	d := make([]int, ub-lb+1)
+	for i, _ := range d {
+		d[i] = lb + i
 	}
-	d := DomainSet{x: x}
 	v := newIntVar(c.varId, d)
 	c.intVars = append(c.intVars, v)
 	c.varId++
@@ -114,23 +113,23 @@ func (c *CSP) genBase() {
 	code := 1
 	for _, v := range c.intVars {
 		c.baseCode[v.id] = code
-		// for k := 0; k < v.domain.Size()-1; k++ {
+		// for k := 0; k < v.domain.size()-1; k++ {
 		// 	log.Println("int", v, "<=", v.domain.x[k], "code", code+k)
 		// }
-		for k := 0; k < v.domain.Size()-2; k++ {
+		for k := 0; k < v.domain.size()-2; k++ {
 			c.sat = append(c.sat, []int{-(code + k), code + k + 1})
 		}
-		code += v.domain.Size() - 1
+		code += v.domain.size() - 1
 	}
 	for _, v := range c.auxIntVars {
 		c.baseCode[v.id] = code
-		// for k := 0; k < v.domain.Size()-1; k++ {
+		// for k := 0; k < v.domain.size()-1; k++ {
 		// 	log.Println("aux int", v, "<=", v.domain.x[k], "code", code+k)
 		// }
-		for k := 0; k < v.domain.Size()-2; k++ {
+		for k := 0; k < v.domain.size()-2; k++ {
 			c.sat = append(c.sat, []int{-(code + k), code + k + 1})
 		}
-		code += v.domain.Size() - 1
+		code += v.domain.size() - 1
 	}
 	for _, v := range c.boolVars {
 		// log.Println("bool", v, "code", code)
@@ -155,3 +154,25 @@ func (c *CSP) Encode() {
 		}
 	}
 }
+
+// func (c *CSP) GetValue(x *IntVar) int {
+// 	// bin search
+// 	base := c.baseCode[x.id]
+// 	l := x.domain[0]
+// 	u := x.domain[x.domain.size()-2]
+// 	if value, ok := c.assigns[u]; ok == true && {
+
+// 	}
+// 	m := (l + u) / 2
+// 	for c.baseCode[assigns
+// 	for i := 0; i < v.domain.size(); i++ {
+// 		if i == v.domain.size()-1 {
+// 			fmt.Println(v, v.domain.x[i])
+// 			break
+// 		} else if a := assigns[c.baseCode[v.id]+i]; a == true {
+// 			fmt.Println(v, v.domain.x[i])
+// 			break
+// 		}
+// 	}
+
+// }

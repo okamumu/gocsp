@@ -6,22 +6,16 @@ import (
 )
 
 func TestDecomp1(t *testing.T) {
-	d1 := DomainSet{
-		x: []int{1, 4, 6, 7, 19},
-	}
+	d1 := DomainSet{1, 4, 6, 7, 19}
 	x := newIntVar(1, d1)
-	d2 := DomainSet{
-		x: []int{1, 2, 3, 4, 5},
-	}
+	d2 := DomainSet{1, 2, 3, 4, 5}
 	y := newIntVar(2, d2)
 	f := NewSum(map[*IntVar]int{x: 3, y: 4}, -1)
 	fmt.Println(f)
 }
 
 func TestDecomp2(t *testing.T) {
-	d := DomainSet{
-		x: []int{1, 4, 6, 7, 19},
-	}
+	d := DomainSet{1, 4, 6, 7, 19}
 	x := newIntVar(0, d)
 	y := newIntVar(1, d)
 	z := newIntVar(2, d)

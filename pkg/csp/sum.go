@@ -16,15 +16,6 @@ func NewSum(coef map[*IntVar]int, b int) *Sum {
 	}
 }
 
-func NewSumFromInt(v *IntVar) *Sum {
-	coef := make(map[*IntVar]int)
-	coef[v] = 1
-	return &Sum{
-		coef: coef,
-		b:    0,
-	}
-}
-
 func (s *Sum) String() string {
 	str := "["
 	for k, v := range s.coef {
@@ -34,11 +25,11 @@ func (s *Sum) String() string {
 	return str
 }
 
-func (s *Sum) Size() int {
+func (s *Sum) size() int {
 	return len(s.coef)
 }
 
-func (s *Sum) ApplyFunc(other *Sum, f func(int, int) int) *Sum {
+func (s *Sum) applyFunc(other *Sum, f func(int, int) int) *Sum {
 	for k, v := range other.coef {
 		if tmp := f(s.coef[k], v); tmp != 0 {
 			s.coef[k] = tmp
@@ -50,7 +41,7 @@ func (s *Sum) ApplyFunc(other *Sum, f func(int, int) int) *Sum {
 	return s
 }
 
-func (s *Sum) Neg() *Sum {
+func (s *Sum) neg() *Sum {
 	for k, v := range s.coef {
 		s.coef[k] = -v
 	}
@@ -58,35 +49,35 @@ func (s *Sum) Neg() *Sum {
 	return s
 }
 
-func (s *Sum) AddConst(b int) *Sum {
+func (s *Sum) addConst(b int) *Sum {
 	s.b += b
 	return s
 }
 
-func (s *Sum) Add(other *Sum) *Sum {
-	return s.ApplyFunc(other, func(x, y int) int {
+func (s *Sum) add(other *Sum) *Sum {
+	return s.applyFunc(other, func(x, y int) int {
 		return x + y
 	})
 }
 
-func (s *Sum) Sub(other *Sum) *Sum {
-	return s.ApplyFunc(other, func(x, y int) int {
+func (s *Sum) sub(other *Sum) *Sum {
+	return s.applyFunc(other, func(x, y int) int {
 		return x - y
 	})
 }
 
-func (s *Sum) MulConst(a int) *Sum {
-	if a != 0 {
-		for k, v := range s.coef {
-			s.coef[k] = a * v
-		}
-		s.b *= a
-	} else {
-		s.coef = make(map[*IntVar]int)
-		s.b = 0
-	}
-	return s
-}
+// func (s *Sum) MulConst(a int) *Sum {
+// 	if a != 0 {
+// 		for k, v := range s.coef {
+// 			s.coef[k] = a * v
+// 		}
+// 		s.b *= a
+// 	} else {
+// 		s.coef = make(map[*IntVar]int)
+// 		s.b = 0
+// 	}
+// 	return s
+// }
 
 func (s *Sum) copy() *Sum {
 	coef := make(map[*IntVar]int)

@@ -7,7 +7,7 @@ import (
 
 type CSPLiteral interface {
 	isSimple() bool
-	encode([][]int, map[uint]int) ([][]int, bool)
+	encode([][]int, map[int]int) ([][]int, bool)
 }
 
 type CSPClause []CSPLiteral
@@ -54,6 +54,10 @@ func (b *BoolVar) tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, []*Bo
 	return append(cnf, CSPClause{b}), auxvars
 }
 
+func (b *CSPBoolNot) tocnf(cnf []CSPClause, auxvars []*BoolVar) ([]CSPClause, []*BoolVar) {
+	return append(cnf, CSPClause{b}), auxvars
+}
+
 // flattenOr: The function is to flatten list of literals for two or more OR operations.
 // Example: Or(Or(a,b,c), AND(d, e)) -> [a, b, c, AND(d,e)]
 func (c *CSPOperator) flattenOr(cs []CSPConstraint) []CSPConstraint {
@@ -79,9 +83,13 @@ func (b *BoolVar) flattenOr(cs []CSPConstraint) []CSPConstraint {
 	return append(cs, b)
 }
 
+func (b *CSPBoolNot) flattenOr(cs []CSPConstraint) []CSPConstraint {
+	return append(cs, b)
+}
+
 // tseitin: Tsetin transform
 func (c *CSPOperator) tseitin(first CSPClause, cs []CSPConstraint, auxvars []*BoolVar) (CSPClause, []CSPConstraint, []*BoolVar) {
-	p := newAuxBoolVar(uint(len(auxvars)), false)
+	p := newAuxBoolVar(len(auxvars))
 	auxvars = append(auxvars, p)
 	first = append(first, p)
 	switch c.op {
@@ -106,6 +114,10 @@ func (b *BoolVar) tseitin(first CSPClause, cs []CSPConstraint, auxvars []*BoolVa
 	return append(first, b), cs, auxvars
 }
 
+func (b *CSPBoolNot) tseitin(first CSPClause, cs []CSPConstraint, auxvars []*BoolVar) (CSPClause, []CSPConstraint, []*BoolVar) {
+	return append(first, b), cs, auxvars
+}
+
 // simplify
 func isSimple(c CSPClause) bool {
 	count := 0
@@ -120,10 +132,14 @@ func isSimple(c CSPClause) bool {
 }
 
 func (c *CSPComparator) isSimple() bool {
-	return c.s.Size() <= 1
+	return c.s.size() <= 1
 }
 
 func (b *BoolVar) isSimple() bool {
+	return true
+}
+
+func (b *CSPBoolNot) isSimple() bool {
 	return true
 }
 
@@ -138,8 +154,8 @@ func simplify(c CSPConstraint, cnf []CSPClause, auxvars []*BoolVar, tmp []CSPCla
 				if lit.isSimple() {
 					first = append(first, lit)
 				} else {
-					p := newAuxBoolVar(uint(len(auxvars)), false)
-					q, _ := p.Not().(*BoolVar)
+					p := newAuxBoolVar(len(auxvars))
+					q := &CSPBoolNot{p}
 					auxvars = append(auxvars, p)
 					first = append(first, p)
 					cnf = append(cnf, CSPClause{lit, q})

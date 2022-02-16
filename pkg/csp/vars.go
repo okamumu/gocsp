@@ -8,23 +8,20 @@ import (
 // BoolVar
 
 type BoolVar struct {
-	id  uint
-	neg bool
+	id  int
 	aux bool
 }
 
-func newBoolVar(id uint, neg bool) *BoolVar {
+func newBoolVar(id int) *BoolVar {
 	return &BoolVar{
 		id:  id,
-		neg: neg,
 		aux: false,
 	}
 }
 
-func newAuxBoolVar(id uint, neg bool) *BoolVar {
+func newAuxBoolVar(id int) *BoolVar {
 	return &BoolVar{
 		id:  id,
-		neg: neg,
 		aux: true,
 	}
 }
@@ -36,22 +33,18 @@ func (x BoolVar) String() string {
 	} else {
 		s = "ab" + strconv.Itoa(int(x.id))
 	}
-	if x.neg {
-		return "!" + s
-	} else {
-		return s
-	}
+	return s
 }
 
 // IntVar
 
 type IntVar struct {
-	id     uint
+	id     int
 	domain DomainSet
 	aux    bool
 }
 
-func newIntVar(id uint, domain DomainSet) *IntVar {
+func newIntVar(id int, domain DomainSet) *IntVar {
 	return &IntVar{
 		id:     id,
 		domain: domain,
@@ -59,7 +52,7 @@ func newIntVar(id uint, domain DomainSet) *IntVar {
 	}
 }
 
-func NewAuxIntVar(id uint, domain DomainSet) *IntVar {
+func newAuxIntVar(id int, domain DomainSet) *IntVar {
 	return &IntVar{
 		id:     id,
 		domain: domain,
@@ -70,21 +63,9 @@ func NewAuxIntVar(id uint, domain DomainSet) *IntVar {
 func (x IntVar) String() string {
 	var s string
 	if x.aux == false {
-		s = "x" + strconv.Itoa(int(x.id))
+		s = "x" + strconv.Itoa(x.id)
 	} else {
-		s = "ax" + strconv.Itoa(int(x.id))
+		s = "ax" + strconv.Itoa(x.id)
 	}
 	return s
 }
-
-// func NewIntVarWithRange(id uint, lb, ub int) *IntVar {
-// 	x := make([]int, ub-lb+1)
-// 	for i, _ := range x {
-// 		x[i] = lb + i
-// 	}
-// 	return NewIntVar(id, DomainSet{x: x})
-// }
-
-// func NewIntVarWithSet(id uint, s []int) *IntVar {
-// 	return NewIntVar(id, DomainSet{x: s})
-// }

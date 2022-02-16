@@ -3,6 +3,7 @@ package csp
 import (
 	"fmt"
 	"log"
+	"strconv"
 )
 
 type CSPOperatorType int
@@ -131,16 +132,33 @@ func (c CSPOperator) String() string {
 	}
 }
 
+// CSPBoolNot
+// This is a negation of bool var
+
+type CSPBoolNot struct {
+	b *BoolVar
+}
+
+func (x *CSPBoolNot) String() string {
+	var s string
+	if x.b.aux == false {
+		s = "!b" + strconv.Itoa(int(x.b.id))
+	} else {
+		s = "!ab" + strconv.Itoa(int(x.b.id))
+	}
+	return s
+}
+
 // Not
 // The method is to take the negation
 func (c *CSPComparator) Not() CSPConstraint {
 	s := c.s.copy()
 	switch c.op {
 	case CSPOperatorLeZero:
-		s.AddConst(-1)
+		s.addConst(-1)
 		return CSPGeZero(s)
 	case CSPOperatorGeZero:
-		s.AddConst(1)
+		s.addConst(1)
 		return CSPLeZero(s)
 	case CSPOperatorEqZero:
 		return CSPNeZero(s)
@@ -169,7 +187,11 @@ func (c *CSPOperator) Not() CSPConstraint {
 }
 
 func (b *BoolVar) Not() CSPConstraint {
-	return &BoolVar{b.id, !b.neg, b.aux}
+	return &CSPBoolNot{b}
+}
+
+func (b *CSPBoolNot) Not() CSPConstraint {
+	return b.b
 }
 
 // ToLeZero
@@ -179,14 +201,14 @@ func (c *CSPComparator) ToLeZero() CSPConstraint {
 	case CSPOperatorEqZero:
 		s1 := c.s.copy()
 		s2 := c.s.copy()
-		return CSPAnd(CSPLeZero(s1), CSPLeZero(s2.Neg()))
+		return CSPAnd(CSPLeZero(s1), CSPLeZero(s2.neg()))
 	case CSPOperatorNeZero:
 		s1 := c.s.copy()
 		s2 := c.s.copy()
-		return CSPOr(CSPLeZero(s1.AddConst(1)), CSPLeZero(s2.Neg().AddConst(1)))
+		return CSPOr(CSPLeZero(s1.addConst(1)), CSPLeZero(s2.neg().addConst(1)))
 	case CSPOperatorGeZero:
 		s1 := c.s.copy()
-		return CSPLeZero(s1.Neg())
+		return CSPLeZero(s1.neg())
 	case CSPOperatorLeZero:
 		s1 := c.s.copy()
 		return CSPLeZero(s1)
@@ -213,5 +235,9 @@ func (c *CSPOperator) ToLeZero() CSPConstraint {
 }
 
 func (b *BoolVar) ToLeZero() CSPConstraint {
-	return &BoolVar{b.id, b.neg, b.aux}
+	return b
+}
+
+func (b *CSPBoolNot) ToLeZero() CSPConstraint {
+	return b
 }
